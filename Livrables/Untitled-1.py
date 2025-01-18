@@ -25,12 +25,7 @@ def scrape_total() :
     return all_categories_links
     
     
-        
-
-
-
-
-
+    
 # Fonction pour télécharger l'image d'un livre
 def download_image(image_url, book_title):
     # Créer un répertoire pour les images si nécessaire
@@ -55,70 +50,44 @@ def download_image(image_url, book_title):
 # Pour chaque livre, on essaye de prendre les informations correspondantes, prix, titre, dispo, etc...
 def scrape_book_infos(url):
     all_books = []
-
-    # Envoyer une requête GET pour récupérer le contenu de la page
-    response = requests.get(url)
-
-    # Vérifier que la requête a réussi
-    if response.status_code == 200:
-        # Parse le contenu HTML avec BeautifulSoup
-        soup = BeautifulSoup(response.text, 'html.parser')
-        print("execute la fonction")
-
-        while soup.find('li', class_='next'):
-            print("ca marche")
-            # Extraire les données des livres sur la page actuelle
-            books = soup.find_all('article', class_='product_pod')  # Recherche des livres
+    
+    while url:
+        response = requests.get(url)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Scraping des livres sur la page actuelle
+            books = soup.find_all('article', class_='product_pod')
+            print(f"Scraping {len(books)} livres sur {url}")
+            
             for book in books:
                 title = book.find('h3').find('a')['title']
                 price = book.find('p', class_='price_color').text
                 availability = book.find('p', class_='instock availability').text.strip()
-                
-
-                # Extraire l'URL de l'image
-                """ image_tag = book.find('img')
-                if image_tag:
-                    image_url = "http://books.toscrape.com/" + image_tag['src']  # L'URL complète de l'image
-                    if image_url.startswith("../"):
-                            image_url = "http://books.toscrape.com/" + image_url[3:]
-                    else:
-                            image_url = "http://books.toscrape.com/" + image_url
-                    download_image(image_url, title)  # Télécharger et sauvegarder l'image
-                else:
-                    print(f"Aucune image trouvée pour {title}") """
-
-                # Créer le "paquet" d'infos pour ce livre
-                book_data = {
-                    "titre": title,
-                    "prix": price,
-                    "Dispo": availability
-                }
-
-                # Ajouter ce paquet à notre collection
+                book_data = {"titre": title, "prix": price, "Dispo": availability}
                 all_books.append(book_data)
 
             # Trouver l'URL de la page suivante
-            base_url = "http://books.toscrape.com/catalogue/category/books/sequential-art_5/"
-            next_page = soup.find('a', class_='next')
+            next_page = soup.find('li', class_='next')
             if next_page:
-                next_page_url = next_page.get('href')
-                full_url = base_url + next_page_url  # Concaténer avec l'URL de base
-                response = requests.get(full_url)
-                soup = BeautifulSoup(response.content, 'html.parser')  # Mettre à jour `soup`
-                print(next_page_url)
-            if not next_page_url.startswith("http"):
-                full_url = base_url.rstrip("/") + "/" + next_page_url
+                next_page_url = next_page.find('a')['href']
+                # On extrait la base de l'URL jusqu'au dernier '/'
+                base_url = url.rsplit('/', 1)[0]
+                full_url = base_url + '/' + next_page_url
+                print(f"URL de la page suivante: {full_url}")
+                url = full_url
             else:
                 break
-
-    else:
-        print(f"Erreur {response.status_code}: Impossible de récupérer la page.")
+        else:
+            print(f"Erreur {response.status_code}: Impossible de récupérer la page.")
+            break
 
     return all_books
 
 
 # Lancer le scraping
 all_books = scrape_book_infos(url)
+print("je scrape")
 
 # Afficher les résultats
 for book in all_books:
@@ -126,9 +95,10 @@ for book in all_books:
     print(f"Prix: {book['prix']}")
     print(f"Disponibilité: {book['Dispo']}")
     print("-" * 50)
+print("j'ajoute !")
 
 # Ajouter les informations des dictionnaires, une ligne après l'autre dans le CSV
-with open('names.csv', 'w', newline='') as csvfile:
+with open('names.csv', 'w', newline='', encoding='utf-8') as csvfile:
     fieldnames = ['titre', 'prix', 'Dispo']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
@@ -137,10 +107,12 @@ with open('names.csv', 'w', newline='') as csvfile:
         writer.writerow(book_data)
 
 
+
 livres_categories_links = scrape_total()
 print(livres_categories_links)
 
+all_books = []
 for scraping_category_link in livres_categories_links :
     print(scraping_category_link)
-    scrape_book_infos(scraping_category_link)
+    all_books.extend(scrape_book_infos(scraping_category_link))
 
